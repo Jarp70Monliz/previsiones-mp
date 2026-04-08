@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Previsiones MP – MONLIZ</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/msal.js/2.38.3/msal-browser.min.js"></script>
+<style>
+  :root {
+    --bg: #f0f4f8;
+    --card: #ffffff;
+    --primary: #1a6f3c;
+    --primary-light: #e8f5ee;
+    --primary-dark: #145730;
+    --accent: #f59e0b;
+    --border: #d1d5db;
+    --text: #111827;
+    --muted: #6b7280;
+    --danger: #dc2626;
+    --success: #16a34a;
+    --radius: 10px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  header {
+    background: var(--primary);
+    color: white;
+    padding: 16px 28px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+  header .logo { font-size: 22px; font-weight: 800; letter-spacing: 1px; }
+  header .subtitle { font-size: 13px; opacity: 0.8; margin-top: 2px; }
+
+  .main { max-width: 860px; margin: 32px auto; padding: 0 16px; }
+
+  /* CONFIG PANEL */
+  .config-panel {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 24px 28px;
+    margin-bottom: 24px;
+    border-left: 4px solid var(--accent);
+  }
+  .config-panel h3 { font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 16px; }
+  .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .config-grid input {
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    width: 100%;
+  }
+  .config-grid input:focus { outline: none; border-color: var(--primary); }
+  .config-grid label { font-size: 12px; color: var(--muted); margin-bottom: 4px; display: block; }
+  .full { grid-column: 1 / -1; }
+
+  /* CARD */
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 28px;
+    margin-bottom: 24px;
+  }
+  .card-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 22px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: 1 / -1; }
+  label { font-size: 13px; font-weight: 600; color: var(--muted); }
+  input, select {
+    padding: 10px 13px;
+    border: 1.5px solid var(--border);
+    border-radius: 7px;
+    font-size: 14px;
+    background: white;
+    color: var(--text);
+    transition: border-color .2s;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+  select:disabled { background: #f9fafb; color: var(--muted); }
+
+  .btn {
+    padding: 11px 22px;
+    border: none;
+    border-radius: 7px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .btn-primary { background: var(--primary); color: white; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-primary:disabled { background: #9ca3af; cursor: not-allowed; }
+  .btn-secondary { background: #f3f4f6; color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: #e5e7eb; }
+  .btn-accent { background: var(--accent); color: white; }
+  .btn-accent:hover { background: #d97706; }
+  .btn-danger { background: var(--danger); color: white; }
+
+  .btn-row { display: flex; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
+
+  /* STATUS BAR */
+  .status-bar {
+    padding: 10px 16px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .status-info { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+  .status-success { background: #f0fdf4; color: var(--success); border: 1px solid #bbf7d0; }
+  .status-error { background: #fef2f2; color: var(--danger); border: 1px solid #fecaca; }
+  .status-loading { background: #fefce8; color: #92400e; border: 1px solid #fde68a; }
+
+  /* AUTH AREA */
+  .auth-area {
+    text-align: center;
+    padding: 40px 20px;
+  }
+  .auth-area p { color: var(--muted); margin-bottom: 20px; font-size: 15px; }
+
+  /* TABLE */
+  .table-wrap { overflow-x: auto; margin-top: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: var(--primary-light); color: var(--primary-dark); padding: 10px 12px; text-align: left; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .4px; }
+  td { padding: 9px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafafa; }
+  .badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge-pending { background: #fef9c3; color: #854d0e; }
+  .badge-saved { background: #dcfce7; color: #15803d; }
+  .badge-error { background: #fee2e2; color: #991b1b; }
+
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .kg-input { font-size: 15px; font-weight: 700; color: var(--primary); }
+
+  @media (max-width: 600px) {
+    .form-grid, .config-grid { grid-template-columns: 1fr; }
+    .config-grid .full { grid-column: 1; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">🌿 MONLIZ</div>
+    <div class="subtitle">Previsiones de Entrada de Materia Prima</div>
+  </div>
+  <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
+    <span id="userLabel" style="font-size:13px; opacity:.85;"></span>
+    <button class="btn btn-secondary" id="authBtn" style="font-size:12px; padding:7px 14px;" onclick="toggleAuth()">Iniciar sesión</button>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- CONFIG -->
+  <div class="config-panel" id="configPanel">
+    <h3>⚙️ Configuración – Excel en SharePoint/OneDrive</h3>
+    <div class="config-grid">
+      <div>
+        <label>Client ID (App Azure)</label>
+        <input id="cfgClientId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" value=""/>
+      </div>
+      <div>
+        <label>Tenant ID</label>
+        <input id="cfgTenantId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" value=""/>
+      </div>
+      <div class="full">
+        <label>URL completa del Excel (.xlsx) en SharePoint o OneDrive</label>
+        <input id="cfgFileUrl" placeholder="https://tuempresa.sharepoint.com/sites/MiSitio/Documentos/Maestro.xlsx"/>
+      </div>
+      <div>
+        <label>Nombre hoja maestra de datos</label>
+        <input id="cfgSheetMaster" value="Maestro" placeholder="Maestro"/>
+      </div>
+      <div>
+        <label>Nombre hoja de previsiones</label>
+        <input id="cfgSheetPrevisiones" value="Previsiones" placeholder="Previsiones"/>
+      </div>
+    </div>
+    <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="btn btn-accent" onclick="saveConfig()">💾 Guardar configuración</button>
+      <button class="btn btn-secondary" onclick="loadMasterData()">📂 Cargar datos maestro</button>
+      <span id="configStatus" style="font-size:12px; color:var(--muted); align-self:center;"></span>
+    </div>
+  </div>
+
+  <!-- STATUS -->
+  <div id="statusBar" class="status-bar status-info" style="display:none;"></div>
+
+  <!-- AUTH REQUIRED -->
+  <div id="authRequired" class="card auth-area" style="display:none;">
+    <p>Inicia sesión con tu cuenta Microsoft 365 para acceder al Excel en SharePoint/OneDrive.</p>
+    <button class="btn btn-primary" style="font-size:15px; padding:13px 28px;" onclick="login()">🔐 Iniciar sesión con Microsoft</button>
+  </div>
+
+  <!-- FORMULARIO -->
+  <div class="card" id="formCard">
+    <div class="card-title">📋 Nueva Previsión</div>
+
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Fecha Previsión *</label>
+        <input type="date" id="fFecha"/>
+      </div>
+      <div class="form-group">
+        <label>Agricultor *</label>
+        <select id="fAgricultor" onchange="onAgricultorChange()">
+          <option value="">— Selecciona agricultor —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Cultivo *</label>
+        <select id="fCultivo" onchange="onCultivoChange()" disabled>
+          <option value="">— Primero elige agricultor —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Finca *</label>
+        <select id="fFinca" onchange="onFincaChange()" disabled>
+          <option value="">— Primero elige cultivo —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Variedad</label>
+        <select id="fVariedad" disabled>
+          <option value="">— Primero elige finca —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Kilos Previstos *</label>
+        <input type="number" id="fKilos" min="0" step="1" placeholder="0" class="kg-input"/>
+      </div>
+      <div class="form-group full">
+        <label>Observaciones</label>
+        <input type="text" id="fObs" placeholder="Opcional..."/>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="addToQueue()">➕ Añadir a la lista</button>
+      <button class="btn btn-secondary" onclick="clearForm()">🔄 Limpiar</button>
+    </div>
+  </div>
+
+  <!-- COLA / TABLA -->
+  <div class="card" id="queueCard" style="display:none;">
+    <div class="card-title">📤 Previsiones pendientes de guardar
+      <span id="queueCount" style="margin-left:8px; background:var(--accent); color:white; border-radius:20px; padding:2px 10px; font-size:13px;"></span>
+    </div>
+    <div class="table-wrap">
+      <table id="queueTable">
+        <thead>
+          <tr>
+            <th>Fecha</th><th>Agricultor</th><th>Cultivo</th><th>Finca</th><th>Variedad</th><th>Kg</th><th>Estado</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="queueBody"></tbody>
+      </table>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btnSave" onclick="saveAll()">💾 Guardar todo en Excel</button>
+      <button class="btn btn-danger" onclick="clearQueue()">🗑️ Vaciar lista</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// CONFIG & STATE
+// ─────────────────────────────────────────────
+let cfg = {
+  clientId: '', tenantId: '', fileUrl: '',
+  sheetMaster: 'Maestro', sheetPrevisiones: 'Previsiones'
+};
+let msalInstance = null;
+let token = null;
+let masterData = []; // [{Agricultor, Cultivo, Finca, Variedad}]
+let queue = [];      // filas a guardar
+let driveId = '', itemId = ''; // Graph IDs del archivo
+
+// Cargar config guardada
+(function initConfig() {
+  const saved = localStorage.getItem('prevMP_cfg');
+  if (saved) { try { cfg = {...cfg, ...JSON.parse(saved)}; } catch(e){} }
+  document.getElementById('cfgClientId').value = cfg.clientId || '';
+  document.getElementById('cfgTenantId').value = cfg.tenantId || '';
+  document.getElementById('cfgFileUrl').value = cfg.fileUrl || '';
+  document.getElementById('cfgSheetMaster').value = cfg.sheetMaster || 'Maestro';
+  document.getElementById('cfgSheetPrevisiones').value = cfg.sheetPrevisiones || 'Previsiones';
+  // Fecha de hoy por defecto
+  document.getElementById('fFecha').value = new Date().toISOString().split('T')[0];
+})();
+
+function saveConfig() {
+  cfg.clientId = document.getElementById('cfgClientId').value.trim();
+  cfg.tenantId = document.getElementById('cfgTenantId').value.trim();
+  cfg.fileUrl  = document.getElementById('cfgFileUrl').value.trim();
+  cfg.sheetMaster = document.getElementById('cfgSheetMaster').value.trim() || 'Maestro';
+  cfg.sheetPrevisiones = document.getElementById('cfgSheetPrevisiones').value.trim() || 'Previsiones';
+  localStorage.setItem('prevMP_cfg', JSON.stringify(cfg));
+  document.getElementById('configStatus').textContent = '✅ Configuración guardada';
+  initMsal();
+}
+
+// ─────────────────────────────────────────────
+// MSAL AUTH
+// ─────────────────────────────────────────────
+function initMsal() {
+  if (!cfg.clientId || !cfg.tenantId) {
+    showStatus('Introduce el Client ID y Tenant ID y guarda la configuración.', 'info');
+    return;
+  }
+  msalInstance = new msal.PublicClientApplication({
+    auth: {
+      clientId: cfg.clientId,
+      authority: `https://login.microsoftonline.com/${cfg.tenantId}`,
+      redirectUri: window.location.href.split('?')[0]
+    },
+    cache: { cacheLocation: 'sessionStorage' }
+  });
+  msalInstance.handleRedirectPromise().then(resp => {
+    if (resp) { token = resp.accessToken; onLoggedIn(resp.account); }
+    else {
+      const accounts = msalInstance.getAllAccounts();
+      if (accounts.length > 0) acquireTokenSilent(accounts[0]);
+      else showAuthRequired();
+    }
+  }).catch(e => showStatus('Error MSAL: ' + e.message, 'error'));
+}
+
+async function acquireTokenSilent(account) {
+  try {
+    const res = await msalInstance.acquireTokenSilent({
+      scopes: ['Files.ReadWrite', 'Sites.ReadWrite.All'],
+      account
+    });
+    token = res.accessToken;
+    onLoggedIn(account);
+  } catch(e) { showAuthRequired(); }
+}
+
+function login() {
+  if (!msalInstance) { initMsal(); return; }
+  msalInstance.loginRedirect({ scopes: ['Files.ReadWrite', 'Sites.ReadWrite.All'] });
+}
+
+function onLoggedIn(account) {
+  document.getElementById('authRequired').style.display = 'none';
+  document.getElementById('userLabel').textContent = account.name || account.username;
+  document.getElementById('authBtn').textContent = 'Cerrar sesión';
+  showStatus('Sesión iniciada. Carga el Excel maestro para continuar.', 'info');
+}
+
+function showAuthRequired() {
+  document.getElementById('authRequired').style.display = 'block';
+}
+
+function toggleAuth() {
+  if (token) {
+    msalInstance.logoutRedirect();
+  } else { login(); }
+}
+
+// ─────────────────────────────────────────────
+// GRAPH API – parsear URL SharePoint/OneDrive
+// ─────────────────────────────────────────────
+function parseSharePointUrl(url) {
+  // Soporta SharePoint y OneDrive for Business
+  // Ej: https://empresa.sharepoint.com/sites/MiSitio/Documentos/Maestro.xlsx
+  // Ej: https://empresa-my.sharepoint.com/personal/jose_empresa_com/Documents/Maestro.xlsx
+  try {
+    const u = new URL(url);
+    const host = u.hostname; // empresa.sharepoint.com
+    const path = u.pathname; // /sites/MiSitio/Documentos/Maestro.xlsx
+    return { host, path };
+  } catch(e) { return null; }
+}
+
+async function graphGet(endpoint) {
+  const res = await fetch('https://graph.microsoft.com/v1.0' + endpoint, {
+    headers: { Authorization: 'Bearer ' + token }
+  });
+  if (!res.ok) throw new Error(`Graph error ${res.status}: ${await res.text()}`);
+  return res.json();
+}
+
+async function graphPost(endpoint, body) {
+  const res = await fetch('https://graph.microsoft.com/v1.0' + endpoint, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) throw new Error(`Graph POST error ${res.status}: ${await res.text()}`);
+  return res.json();
+}
+
+async function resolveFileIds() {
+  const { host, path } = parseSharePointUrl(cfg.fileUrl);
+  // Obtener site
+  const sitePath = path.split('/').slice(0,3).join('/'); // /sites/MiSitio o /personal/...
+  const site = await graphGet(`/sites/${host}:${sitePath}`);
+  const siteId = site.id;
+  // Obtener drive (primera biblioteca de documentos)
+  const drives = await graphGet(`/sites/${siteId}/drives`);
+  // Buscar el drive que contiene el fichero
+  const filePath = '/' + path.split('/').slice(3).join('/'); // /Documentos/Maestro.xlsx
+  for (const d of drives.value) {
+    try {
+      const item = await graphGet(`/drives/${d.id}/root:${filePath}`);
+      driveId = d.id;
+      itemId = item.id;
+      return;
+    } catch(e) { /* try next drive */ }
+  }
+  throw new Error('No se encontró el archivo en SharePoint. Revisa la URL.');
+}
+
+// ─────────────────────────────────────────────
+// CARGAR MAESTRO
+// ─────────────────────────────────────────────
+async function loadMasterData() {
+  if (!token) { showStatus('Primero inicia sesión con Microsoft.', 'error'); showAuthRequired(); return; }
+  if (!cfg.fileUrl) { showStatus('Introduce la URL del Excel.', 'error'); return; }
+  showStatus('Conectando con SharePoint...', 'loading');
+  try {
+    await resolveFileIds();
+    // Leer hoja maestra via Graph Excel API
+    const sheet = cfg.sheetMaster;
+    const data = await graphGet(`/drives/${driveId}/items/${itemId}/workbook/worksheets('${encodeURIComponent(sheet)}')/usedRange`);
+    const rows = data.values;
+    if (!rows || rows.length < 2) throw new Error('La hoja maestra está vacía o no tiene datos.');
+    // Primera fila = cabeceras
+    const headers = rows[0].map(h => (h+'').trim().toLowerCase());
+    const iAgr = headers.findIndex(h => h.includes('agricultor'));
+    const iCul = headers.findIndex(h => h.includes('cultivo'));
+    const iFin = headers.findIndex(h => h.includes('finca'));
+    const iVar = headers.findIndex(h => h.includes('variedad'));
+    if (iAgr === -1 || iCul === -1) throw new Error('No se encontraron las columnas Agricultor/Cultivo. Revisa el Excel maestro.');
+    masterData = rows.slice(1)
+      .filter(r => r[iAgr])
+      .map(r => ({
+        agricultor: (r[iAgr]||'').toString().trim(),
+        cultivo:    (r[iCul]||'').toString().trim(),
+        finca:      iFin >= 0 ? (r[iFin]||'').toString().trim() : '',
+        variedad:   iVar >= 0 ? (r[iVar]||'').toString().trim() : ''
+      }));
+    populateAgricultores();
+    showStatus(`✅ Maestro cargado: ${masterData.length} registros leídos.`, 'success');
+    // Asegurar que existe hoja Previsiones
+    await ensurePrevisionesSheet();
+  } catch(e) {
+    showStatus('Error al cargar maestro: ' + e.message, 'error');
+  }
+}
+
+async function ensurePrevisionesSheet() {
+  try {
+    await graphGet(`/drives/${driveId}/items/${itemId}/workbook/worksheets('${encodeURIComponent(cfg.sheetPrevisiones)}')`);
+  } catch(e) {
+    // No existe, crearla
+    await graphPost(`/drives/${driveId}/items/${itemId}/workbook/worksheets`, { name: cfg.sheetPrevisiones });
+    // Escribir cabeceras
+    await graphPost(
+      `/drives/${driveId}/items/${itemId}/workbook/worksheets('${encodeURIComponent(cfg.sheetPrevisiones)}')/range(address='A1:H1')`,
+      { values: [['Fecha Previsión','Fecha Registro','Agricultor','Cultivo','Finca','Variedad','Kilos Previstos','Observaciones']] }
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// FORMULARIO ENCADENADO
+// ─────────────────────────────────────────────
+function unique(arr) { return [...new Set(arr.filter(Boolean))].sort(); }
+
+function populateAgricultores() {
+  const sel = document.getElementById('fAgricultor');
+  sel.innerHTML = '<option value="">— Selecciona agricultor —</option>';
+  unique(masterData.map(r => r.agricultor)).forEach(a => {
+    const o = document.createElement('option'); o.value = a; o.textContent = a; sel.appendChild(o);
+  });
+  resetSelect('fCultivo', '— Primero elige agricultor —', true);
+  resetSelect('fFinca', '— Primero elige cultivo —', true);
+  resetSelect('fVariedad', '— Primero elige finca —', true);
+}
+
+function onAgricultorChange() {
+  const agr = document.getElementById('fAgricultor').value;
+  const cultivos = unique(masterData.filter(r => r.agricultor === agr).map(r => r.cultivo));
+  const sel = document.getElementById('fCultivo');
+  sel.innerHTML = '<option value="">— Selecciona cultivo —</option>';
+  cultivos.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
+  sel.disabled = !agr;
+  resetSelect('fFinca', '— Primero elige cultivo —', true);
+  resetSelect('fVariedad', '— Primero elige finca —', true);
+}
+
+function onCultivoChange() {
+  const agr = document.getElementById('fAgricultor').value;
+  const cul = document.getElementById('fCultivo').value;
+  const fincas = unique(masterData.filter(r => r.agricultor === agr && r.cultivo === cul).map(r => r.finca));
+  const sel = document.getElementById('fFinca');
+  sel.innerHTML = '<option value="">— Selecciona finca —</option>';
+  fincas.forEach(f => { const o = document.createElement('option'); o.value = f; o.textContent = f; sel.appendChild(o); });
+  sel.disabled = !cul;
+  resetSelect('fVariedad', '— Primero elige finca —', true);
+}
+
+function onFincaChange() {
+  const agr = document.getElementById('fAgricultor').value;
+  const cul = document.getElementById('fCultivo').value;
+  const fin = document.getElementById('fFinca').value;
+  const variedades = unique(masterData.filter(r => r.agricultor === agr && r.cultivo === cul && r.finca === fin).map(r => r.variedad));
+  const sel = document.getElementById('fVariedad');
+  sel.innerHTML = '<option value="">— Selecciona variedad —</option>';
+  variedades.forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; sel.appendChild(o); });
+  sel.disabled = !fin;
+}
+
+function resetSelect(id, placeholder, disabled) {
+  const el = document.getElementById(id);
+  el.innerHTML = `<option value="">${placeholder}</option>`;
+  el.disabled = disabled;
+}
+
+// ─────────────────────────────────────────────
+// COLA DE REGISTROS
+// ─────────────────────────────────────────────
+function addToQueue() {
+  const fecha   = document.getElementById('fFecha').value;
+  const agr     = document.getElementById('fAgricultor').value;
+  const cultivo = document.getElementById('fCultivo').value;
+  const finca   = document.getElementById('fFinca').value;
+  const variedad= document.getElementById('fVariedad').value;
+  const kilos   = document.getElementById('fKilos').value;
+  const obs     = document.getElementById('fObs').value;
+
+  if (!fecha || !agr || !cultivo || !finca || !kilos) {
+    showStatus('Completa los campos obligatorios: Fecha, Agricultor, Cultivo, Finca y Kilos.', 'error');
+    return;
+  }
+
+  queue.push({ fecha, agr, cultivo, finca, variedad, kilos: parseInt(kilos), obs, estado: 'pendiente' });
+  renderQueue();
+  clearForm();
+  showStatus('Registro añadido a la lista.', 'success');
+}
+
+function renderQueue() {
+  if (queue.length === 0) { document.getElementById('queueCard').style.display = 'none'; return; }
+  document.getElementById('queueCard').style.display = 'block';
+  document.getElementById('queueCount').textContent = queue.length;
+  const tbody = document.getElementById('queueBody');
+  tbody.innerHTML = '';
+  queue.forEach((r, i) => {
+    const estadoMap = {
+      pendiente: '<span class="badge badge-pending">Pendiente</span>',
+      guardado:  '<span class="badge badge-saved">✅ Guardado</span>',
+      error:     '<span class="badge badge-error">❌ Error</span>'
+    };
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${r.fecha}</td>
+      <td>${r.agr}</td>
+      <td>${r.cultivo}</td>
+      <td>${r.finca}</td>
+      <td>${r.variedad||'—'}</td>
+      <td style="font-weight:700;">${r.kilos.toLocaleString('es-ES')} kg</td>
+      <td id="estado_${i}">${estadoMap[r.estado]}</td>
+      <td>${r.estado === 'pendiente' ? `<button class="btn btn-secondary" style="padding:4px 10px; font-size:12px;" onclick="removeRow(${i})">✕</button>` : ''}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function removeRow(i) {
+  queue.splice(i, 1);
+  renderQueue();
+}
+
+function clearQueue() {
+  if (!confirm('¿Vaciar la lista de previsiones pendientes?')) return;
+  queue = [];
+  renderQueue();
+}
+
+function clearForm() {
+  document.getElementById('fAgricultor').value = '';
+  document.getElementById('fKilos').value = '';
+  document.getElementById('fObs').value = '';
+  document.getElementById('fFecha').value = new Date().toISOString().split('T')[0];
+  onAgricultorChange();
+  resetSelect('fCultivo', '— Primero elige agricultor —', true);
+  resetSelect('fFinca', '— Primero elige cultivo —', true);
+  resetSelect('fVariedad', '— Primero elige finca —', true);
+}
+
+// ─────────────────────────────────────────────
+// GUARDAR EN EXCEL (Graph Excel API append rows)
+// ─────────────────────────────────────────────
+async function saveAll() {
+  const pending = queue.filter(r => r.estado === 'pendiente');
+  if (pending.length === 0) { showStatus('No hay previsiones pendientes.', 'info'); return; }
+  if (!token || !driveId || !itemId) {
+    showStatus('Primero inicia sesión y carga el maestro de datos.', 'error'); return;
+  }
+  document.getElementById('btnSave').disabled = true;
+  showStatus(`Guardando ${pending.length} registro(s) en Excel...`, 'loading');
+
+  const now = new Date().toISOString().replace('T',' ').slice(0,19);
+  const sheet = encodeURIComponent(cfg.sheetPrevisiones);
+
+  // Obtener última fila usada
+  let lastRow = 1;
+  try {
+    const used = await graphGet(`/drives/${driveId}/items/${itemId}/workbook/worksheets('${sheet}')/usedRange`);
+    lastRow = used.rowCount || 1;
+  } catch(e) { lastRow = 1; }
+
+  let saved = 0;
+  for (let i = 0; i < queue.length; i++) {
+    const r = queue[i];
+    if (r.estado !== 'pendiente') continue;
+    try {
+      const row = lastRow + 1 + saved;
+      const range = `A${row}:H${row}`;
+      await fetch(
+        `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${itemId}/workbook/worksheets('${sheet}')/range(address='${range}')`,
+        {
+          method: 'PATCH',
+          headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ values: [[r.fecha, now, r.agr, r.cultivo, r.finca, r.variedad||'', r.kilos, r.obs||'']] })
+        }
+      );
+      queue[i].estado = 'guardado';
+      saved++;
+    } catch(e) {
+      queue[i].estado = 'error';
+    }
+    renderQueue();
+  }
+  document.getElementById('btnSave').disabled = false;
+  showStatus(`✅ ${saved} registro(s) guardados correctamente en la hoja "${cfg.sheetPrevisiones}".`, 'success');
+}
+
+// ─────────────────────────────────────────────
+// UTILS
+// ─────────────────────────────────────────────
+function showStatus(msg, type) {
+  const bar = document.getElementById('statusBar');
+  const icons = { info:'ℹ️', success:'✅', error:'❌', loading:'⏳' };
+  bar.className = `status-bar status-${type}`;
+  bar.innerHTML = `${icons[type]||''} ${msg}`;
+  bar.style.display = 'flex';
+}
+
+// Init MSAL si ya hay config guardada
+if (cfg.clientId && cfg.tenantId) initMsal();
+</script>
+</body>
+</html>
